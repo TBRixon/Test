@@ -1,0 +1,11 @@
+client_id,client_name,address,loan_balance,current_rate,broker,fixed_expiry
+12345,John Smith,"10 Robin St Camira QLD 4300",600000,6.35,Rixon,2027-03-01
+12346,Sarah Jones,"25 Maple Ave Kenmore QLD 4069",480000,5.99,Thompson,2025-08-15
+12347,Michael Brown,"7 Ocean Dr Burleigh Heads QLD 4220",950000,6.45,Rixon,2025-09-30
+12348,Emily Davis,"3 Park Rd Indooroopilly QLD 4068",320000,6.10,Williams,
+12349,David Wilson,"14 Hill St Toowong QLD 4066",710000,6.55,Thompson,2026-01-20
+12350,Jessica Taylor,"88 River Rd West End QLD 4101",540000,5.85,Rixon,
+12351,Christopher Martin,"31 Bay St Cleveland QLD 4163",415000,6.30,Williams,2025-11-01
+12352,Amanda Anderson,"52 Creek Rd Graceville QLD 4075",880000,6.20,Thompson,2027-06-15
+12353,Matthew Thomas,"9 Fern St Ashgrove QLD 4060",275000,6.75,Rixon,2025-07-31
+12354,Melissa Jackson,"18 Summit Rd Paddington QLD 4064",630000,6.00,Williams,2026-04-10
