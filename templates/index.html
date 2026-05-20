@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RefiSight – Refinance Opportunity Dashboard</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:        #0d1b2e;
+      --navy-mid:    #152540;
+      --navy-light:  #1e3358;
+      --accent:      #2563eb;
+      --accent-hover:#1d4ed8;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --border:      #e2e8f0;
+      --bg:          #f8fafc;
+      --white:       #ffffff;
+
+      --green-bg:    #ecfdf5;
+      --green-text:  #065f46;
+      --green-border:#10b981;
+      --green-bar:   #10b981;
+
+      --amber-bg:    #fffbeb;
+      --amber-text:  #92400e;
+      --amber-border:#f59e0b;
+      --amber-bar:   #f59e0b;
+
+      --red-bg:      #fef2f2;
+      --red-text:    #991b1b;
+      --red-border:  #ef4444;
+      --red-bar:     #ef4444;
+
+      --grey-bg:     #f1f5f9;
+      --grey-text:   #475569;
+      --grey-border: #94a3b8;
+    }
+
+    html, body { height: 100%; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Layout ───────────────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Nav ──────────────────────────────────────────────────────── */
+    nav {
+      background: var(--navy);
+      padding: 0 28px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 8px rgba(0,0,0,.35);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -.3px;
+    }
+    .nav-brand .icon {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .nav-meta {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .nav-meta span { color: #cbd5e1; font-weight: 500; }
+
+    /* ── Summary cards ────────────────────────────────────────────── */
+    .summary-bar {
+      background: var(--navy-mid);
+      padding: 18px 28px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .card {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 14px 20px;
+      min-width: 130px;
+      flex: 1;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover, .card.active { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.18); }
+    .card.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .card.active.c-all::after    { background: #60a5fa; }
+    .card.active.c-strong::after { background: var(--green-bar); }
+    .card.active.c-review::after { background: var(--amber-bar); }
+    .card.active.c-no::after     { background: var(--red-bar); }
+    .card-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+    .card-value { font-size: 26px; font-weight: 700; color: #f8fafc; line-height: 1; }
+    .card-sub   { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .card.c-strong .card-value { color: #4ade80; }
+    .card.c-review .card-value { color: #fbbf24; }
+    .card.c-no     .card-value { color: #f87171; }
+
+    /* ── Toolbar ──────────────────────────────────────────────────── */
+    .toolbar {
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar-title { font-weight: 600; font-size: 15px; color: var(--navy); margin-right: 8px; }
+
+    .search-wrap { position: relative; flex: 1; max-width: 320px; }
+    .search-wrap input {
+      width: 100%;
+      padding: 8px 12px 8px 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); pointer-events: none;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .pill-all    { background: #eff6ff; color: var(--accent); border-color: #bfdbfe; }
+    .pill-all:hover, .pill-all.active    { background: var(--accent); color: white; border-color: var(--accent); }
+    .pill-strong { background: var(--green-bg); color: var(--green-text); border-color: #a7f3d0; }
+    .pill-strong:hover, .pill-strong.active { background: var(--green-border); color: white; border-color: var(--green-border); }
+    .pill-review { background: var(--amber-bg); color: var(--amber-text); border-color: #fde68a; }
+    .pill-review:hover, .pill-review.active { background: var(--amber-border); color: white; border-color: var(--amber-border); }
+    .pill-no     { background: var(--red-bg); color: var(--red-text); border-color: #fecaca; }
+    .pill-no:hover, .pill-no.active { background: var(--red-border); color: white; border-color: var(--red-border); }
+
+    .count-badge {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── Table wrapper ────────────────────────────────────────────── */
+    .table-wrap {
+      flex: 1;
+      overflow-x: auto;
+      padding: 0 28px 32px;
+      background: var(--bg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 16px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--navy);
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      padding: 12px 14px;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      position: sticky;
+      top: 0;
+    }
+    thead th:hover { color: #f1f5f9; }
+    thead th .sort-icon { display: inline-block; margin-left: 4px; opacity: .4; font-size: 10px; }
+    thead th.sorted .sort-icon { opacity: 1; color: #60a5fa; }
+
+    tbody tr { transition: background .1s; border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { filter: brightness(.97); }
+
+    td { padding: 12px 14px; vertical-align: middle; }
+
+    /* Band-based row tinting */
+    tr.band-strong { background: var(--green-bg); }
+    tr.band-review { background: var(--amber-bg); }
+    tr.band-no     { background: var(--red-bg); }
+    tr.band-unavail { background: var(--grey-bg); }
+
+    /* Left accent stripe */
+    tr.band-strong td:first-child { border-left: 4px solid var(--green-border); padding-left: 10px; }
+    tr.band-review td:first-child { border-left: 4px solid var(--amber-border); padding-left: 10px; }
+    tr.band-no     td:first-child { border-left: 4px solid var(--red-border);   padding-left: 10px; }
+    tr.band-unavail td:first-child { border-left: 4px solid var(--grey-border); padding-left: 10px; }
+
+    .client-name { font-weight: 600; color: var(--navy); }
+    .client-id   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .address     { color: var(--muted); font-size: 12px; max-width: 180px; line-height: 1.4; }
+
+    /* LVR bar */
+    .lvr-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
+    .lvr-val  { font-weight: 700; font-size: 14px; }
+    .lvr-bar-bg { height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .lvr-bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+    tr.band-strong .lvr-val  { color: var(--green-text); }
+    tr.band-strong .lvr-bar-fill { background: var(--green-bar); }
+    tr.band-review .lvr-val  { color: var(--amber-text); }
+    tr.band-review .lvr-bar-fill { background: var(--amber-bar); }
+    tr.band-no     .lvr-val  { color: var(--red-text); }
+    tr.band-no     .lvr-bar-fill { background: var(--red-bar); }
+    tr.band-unavail .lvr-val { color: var(--grey-text); }
+    tr.band-unavail .lvr-bar-fill { background: var(--grey-border); }
+
+    /* Band badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .badge-strong  { background: var(--green-bg);  color: var(--green-text);  border: 1px solid #a7f3d0; }
+    .badge-review  { background: var(--amber-bg);  color: var(--amber-text);  border: 1px solid #fde68a; }
+    .badge-no      { background: var(--red-bg);    color: var(--red-text);    border: 1px solid #fecaca; }
+    .badge-unavail { background: var(--grey-bg);   color: var(--grey-text);   border: 1px solid #e2e8f0; }
+
+    /* Flags */
+    .flags { display: flex; flex-direction: column; gap: 3px; }
+    .flag  { font-size: 11px; white-space: nowrap; }
+
+    /* Score dots */
+    .score-wrap { display: flex; gap: 3px; align-items: center; }
+    .score-dot  { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; }
+    .score-dot.filled { background: var(--accent); }
+    .score-num  { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+    /* Action button */
+    .action-btn {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .action-call    { background: #eff6ff; color: var(--accent); }
+    .action-assess  { background: var(--amber-bg); color: var(--amber-text); }
+    .action-monitor { background: var(--grey-bg);  color: var(--grey-text); }
+
+    .broker-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #eff6ff;
+      color: var(--accent);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .mono { font-family: 'SF Mono', 'Consolas', monospace; }
+
+    /* ── Loading / empty states ───────────────────────────────────── */
+    .state-msg {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--muted);
+    }
+    .state-msg svg { display: block; margin: 0 auto 16px; opacity: .3; }
+    .spinner {
+      width: 32px; height: 32px; margin: 0 auto 16px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    footer {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 12px 28px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Responsive tweaks ────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav, .summary-bar, .toolbar, .table-wrap, footer { padding-left: 16px; padding-right: 16px; }
+      .card { min-width: 100px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Navigation ── -->
+  <nav>
+    <div class="nav-brand">
+      <div class="icon">📊</div>
+      RefiSight
+    </div>
+    <div class="nav-meta">Run date: <span id="runDate">—</span></div>
+  </nav>
+
+  <!-- ── Summary cards ── -->
+  <div class="summary-bar" id="summaryBar">
+    <div class="card c-all active" data-band="" onclick="filterBand(this,'')">
+      <div class="card-label">Total Clients</div>
+      <div class="card-value" id="cTotal">—</div>
+      <div class="card-sub">in portfolio</div>
+    </div>
+    <div class="card c-strong" data-band="✅ Strong Refi" onclick="filterBand(this,'✅ Strong Refi')">
+      <div class="card-label">Strong Refi</div>
+      <div class="card-value" id="cStrong">—</div>
+      <div class="card-sub">LVR ≤ 80%</div>
+    </div>
+    <div class="card c-review" data-band="⚠ Review" onclick="filterBand(this,'⚠ Review')">
+      <div class="card-label">Review</div>
+      <div class="card-value" id="cReview">—</div>
+      <div class="card-sub">LVR 80–90%</div>
+    </div>
+    <div class="card c-no" data-band="❌ No Refi" onclick="filterBand(this,'❌ No Refi')">
+      <div class="card-label">No Refi</div>
+      <div class="card-value" id="cNo">—</div>
+      <div class="card-sub">LVR &gt; 90%</div>
+    </div>
+    <div class="card c-all" style="cursor:default" data-band="__none__">
+      <div class="card-label">Above Market Rate</div>
+      <div class="card-value" id="cRate" style="color:#60a5fa">—</div>
+      <div class="card-sub">≥ 6.20%</div>
+    </div>
+    <div class="card c-all" style="cursor:default" data-band="__none__">
+      <div class="card-label">Expiring Fixed</div>
+      <div class="card-value" id="cExpiring" style="color:#a78bfa">—</div>
+      <div class="card-sub">within 6 months</div>
+    </div>
+  </div>
+
+  <!-- ── Toolbar ── -->
+  <div class="toolbar">
+    <span class="toolbar-title">Opportunities</span>
+
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Search client, address…" oninput="applyFilters()" />
+    </div>
+
+    <select id="brokerSelect" onchange="applyFilters()">
+      <option value="">All Brokers</option>
+    </select>
+
+    <button class="pill pill-all active" data-band="" onclick="filterBandPill(this,'')">All</button>
+    <button class="pill pill-strong" data-band="✅ Strong Refi" onclick="filterBandPill(this,'✅ Strong Refi')">✅ Strong Refi</button>
+    <button class="pill pill-review" data-band="⚠ Review" onclick="filterBandPill(this,'⚠ Review')">⚠ Review</button>
+    <button class="pill pill-no" data-band="❌ No Refi" onclick="filterBandPill(this,'❌ No Refi')">❌ No Refi</button>
+
+    <span class="count-badge" id="countBadge"></span>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="table-wrap">
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th onclick="sortBy('client_name')" data-col="client_name">Client <span class="sort-icon">↕</span></th>
+          <th onclick="sortBy('broker')" data-col="broker">Broker <span class="sort-icon">↕</span></th>
+          <th>Address</th>
+          <th onclick="sortBy('avm_value_raw')" data-col="avm_value_raw">Estimated Value <span class="sort-icon">↕</span></th>
+          <th>AVM Range</th>
+          <th onclick="sortBy('lvr_raw')" data-col="lvr_raw">LVR <span class="sort-icon">↕</span></th>
+          <th onclick="sortBy('lvr_band')" data-col="lvr_band">Band <span class="sort-icon">↕</span></th>
+          <th onclick="sortBy('rate_raw')" data-col="rate_raw">Rate <span class="sort-icon">↕</span></th>
+          <th>Flags</th>
+          <th onclick="sortBy('score')" data-col="score">Priority <span class="sort-icon">↕</span></th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="11"><div class="state-msg"><div class="spinner"></div>Loading data…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    ⚠ AVM is an estimate only and not a formal valuation. Use for internal servicing purposes only. &nbsp;|&nbsp; RefiSight — Internal Use Only
+  </footer>
+
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────
+  let allRows    = [];
+  let sortCol    = 'score';
+  let sortDir    = -1;           // -1 = desc, 1 = asc
+  let activeBand = '';
+  const MAX_SCORE = 7;
+
+  // ── Boot ───────────────────────────────────────────────────────────────
+  async function boot() {
+    try {
+      const [summary, data] = await Promise.all([
+        fetch('/api/summary').then(r => r.json()),
+        fetch('/api/data').then(r => r.json()),
+      ]);
+      populateSummary(summary);
+      populateBrokerSelect(summary.brokers);
+      allRows = data.map(r => ({
+        ...r,
+        avm_value_raw: parseFloat((r.avm_value || '').replace(/[^0-9.]/g, '')) || 0,
+        rate_raw:      parseFloat((r.rate || '').replace('%', '')) || 0,
+      }));
+      applyFilters();
+    } catch(e) {
+      document.getElementById('tableBody').innerHTML =
+        `<tr><td colspan="11"><div class="state-msg">Failed to load data. Is the Flask server running?</div></td></tr>`;
+    }
+  }
+
+  // ── Summary cards ──────────────────────────────────────────────────────
+  function populateSummary(s) {
+    document.getElementById('runDate').textContent    = s.run_date || '—';
+    document.getElementById('cTotal').textContent     = s.total;
+    document.getElementById('cStrong').textContent    = s.strong;
+    document.getElementById('cReview').textContent    = s.review;
+    document.getElementById('cNo').textContent        = s.no_refi;
+    document.getElementById('cRate').textContent      = s.above_rate;
+    document.getElementById('cExpiring').textContent  = s.expiring;
+  }
+
+  function populateBrokerSelect(brokers) {
+    const sel = document.getElementById('brokerSelect');
+    brokers.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b; o.textContent = b;
+      sel.appendChild(o);
+    });
+  }
+
+  // ── Filtering ──────────────────────────────────────────────────────────
+  function applyFilters() {
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
+    const broker = document.getElementById('brokerSelect').value;
+
+    let rows = allRows.filter(r => {
+      if (activeBand && r.lvr_band !== activeBand) return false;
+      if (broker && r.broker !== broker) return false;
+      if (search) {
+        const hay = `${r.client_name} ${r.address} ${r.client_id}`.toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+
+    rows = sortRows(rows);
+    render(rows);
+    document.getElementById('countBadge').textContent =
+      `${rows.length} of ${allRows.length} clients`;
+  }
+
+  function filterBand(card, band) {
+    document.querySelectorAll('.card[data-band]').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    activeBand = band;
+    applyFilters();
+    // Sync pills
+    document.querySelectorAll('.pill[data-band]').forEach(p => {
+      p.classList.toggle('active', p.dataset.band === band);
+    });
+  }
+
+  function filterBandPill(pill, band) {
+    document.querySelectorAll('.pill[data-band]').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeBand = band;
+    applyFilters();
+    // Sync cards
+    document.querySelectorAll('.card[data-band]').forEach(c => {
+      c.classList.toggle('active', c.dataset.band === band);
+    });
+  }
+
+  // ── Sorting ────────────────────────────────────────────────────────────
+  function sortBy(col) {
+    if (sortCol === col) { sortDir *= -1; }
+    else { sortCol = col; sortDir = col === 'score' ? -1 : 1; }
+    document.querySelectorAll('thead th[data-col]').forEach(th => {
+      th.classList.toggle('sorted', th.dataset.col === col);
+      if (th.dataset.col === col) {
+        th.querySelector('.sort-icon').textContent = sortDir === -1 ? '↓' : '↑';
+      } else {
+        th.querySelector('.sort-icon').textContent = '↕';
+      }
+    });
+    applyFilters();
+  }
+
+  function sortRows(rows) {
+    return [...rows].sort((a, b) => {
+      const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────
+  function bandClass(band) {
+    if (!band) return 'band-unavail';
+    if (band.includes('Strong')) return 'band-strong';
+    if (band.includes('Review')) return 'band-review';
+    if (band.includes('No Refi')) return 'band-no';
+    return 'band-unavail';
+  }
+
+  function badgeHtml(band) {
+    const cls = bandClass(band);
+    const map = {
+      'band-strong':'badge-strong','band-review':'badge-review',
+      'band-no':'badge-no','band-unavail':'badge-unavail'
+    };
+    return `<span class="badge ${map[cls]}">${escHtml(band || 'AVM Unavailable')}</span>`;
+  }
+
+  function lvrHtml(r) {
+    if (r.lvr_raw === null || r.lvr_raw === undefined || r.lvr === '—') {
+      return `<div class="lvr-wrap"><span class="lvr-val" style="color:var(--grey-text)">—</span></div>`;
+    }
+    const pct = Math.min(r.lvr_raw, 100);
+    return `
+      <div class="lvr-wrap">
+        <span class="lvr-val">${escHtml(r.lvr)}</span>
+        <div class="lvr-bar-bg"><div class="lvr-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }
+
+  function flagsHtml(r) {
+    const parts = [];
+    if (r.rate_flag)       parts.push(`<span class="flag">${escHtml(r.rate_flag)}</span>`);
+    if (r.timing_flag)     parts.push(`<span class="flag">${escHtml(r.timing_flag)}</span>`);
+    if (r.confidence_flag) parts.push(`<span class="flag">${escHtml(r.confidence_flag)}</span>`);
+    return parts.length ? `<div class="flags">${parts.join('')}</div>` : '<span style="color:var(--muted)">—</span>';
+  }
+
+  function scoreHtml(score) {
+    let dots = '';
+    for (let i = 0; i < MAX_SCORE; i++) {
+      dots += `<span class="score-dot ${i < score ? 'filled' : ''}"></span>`;
+    }
+    return `<div class="score-wrap">${dots}<span class="score-num">${score}/${MAX_SCORE}</span></div>`;
+  }
+
+  function actionHtml(action) {
+    const cls = action === 'Call Client' ? 'action-call'
+              : action === 'Assess Options' ? 'action-assess'
+              : 'action-monitor';
+    return `<span class="action-btn ${cls}">${escHtml(action || '—')}</span>`;
+  }
+
+  function escHtml(s) {
+    return String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function render(rows) {
+    const tbody = document.getElementById('tableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="11"><div class="state-msg">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        No clients match the current filters.</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+      <tr class="${bandClass(r.lvr_band)}">
+        <td>
+          <div class="client-name">${escHtml(r.client_name)}</div>
+          <div class="client-id mono">#${escHtml(r.client_id)}</div>
+        </td>
+        <td><span class="broker-tag">${escHtml(r.broker)}</span></td>
+        <td><div class="address">${escHtml(r.address)}</div></td>
+        <td class="mono" style="font-weight:600">${escHtml(r.avm_value)}</td>
+        <td class="mono" style="font-size:12px;color:var(--muted)">${escHtml(r.avm_range)}</td>
+        <td>${lvrHtml(r)}</td>
+        <td>${badgeHtml(r.lvr_band)}</td>
+        <td class="mono" style="font-weight:600">${escHtml(r.rate)}</td>
+        <td>${flagsHtml(r)}</td>
+        <td>${scoreHtml(r.score)}</td>
+        <td>${actionHtml(r.action)}</td>
+      </tr>`).join('');
+  }
+
+  boot();
+</script>
+</body>
+</html>
