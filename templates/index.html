@@ -334,9 +334,140 @@
       line-height: 1.5;
     }
 
+    /* ── Upload panel ─────────────────────────────────────────────── */
+    .upload-toggle-bar {
+      background: var(--navy-light);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 44px;
+    }
+    .upload-toggle-btn {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s, border-color .15s;
+    }
+    .upload-toggle-btn:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); color: #f1f5f9; }
+    .upload-toggle-bar .hint { font-size: 11px; color: #64748b; }
+
+    .upload-panel {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height .3s ease, padding .3s ease;
+    }
+    .upload-panel.open { max-height: 340px; }
+    .upload-panel-inner { padding: 24px 28px; }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      background: var(--bg);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: #f0f6ff; }
+    .upload-zone.drag-over { border-color: var(--accent); background: #eff6ff; }
+    .upload-zone.uploading { opacity: .6; pointer-events: none; }
+
+    .upload-icon { font-size: 32px; margin-bottom: 10px; line-height: 1; }
+    .upload-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .upload-hint  { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .upload-filename { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 6px; }
+
+    .browse-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .browse-btn:hover { background: var(--accent-hover); }
+
+    .upload-result {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+    .upload-result.visible { display: flex; }
+    .result-title { font-size: 13px; font-weight: 600; color: var(--text); margin-right: 4px; }
+    .chip {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .chip-added   { background: var(--green-bg);  color: var(--green-text); }
+    .chip-updated { background: #eff6ff;           color: var(--accent); }
+    .chip-error   { background: var(--red-bg);     color: var(--red-text); }
+    .chip-warn    { background: var(--amber-bg);   color: var(--amber-text); }
+    .dismiss-btn {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .dismiss-btn:hover { background: var(--border); }
+
+    .upload-error-msg {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: var(--red-bg);
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--red-text);
+    }
+    .upload-error-msg.visible { display: block; }
+
+    .upload-spinner {
+      display: none;
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 8px;
+    }
+    .upload-zone.uploading .upload-spinner { display: block; }
+    .upload-zone.uploading .upload-icon,
+    .upload-zone.uploading .browse-btn { display: none; }
+
     /* ── Responsive tweaks ────────────────────────────────────────── */
     @media (max-width: 768px) {
-      nav, .summary-bar, .toolbar, .table-wrap, footer { padding-left: 16px; padding-right: 16px; }
+      nav, .upload-toggle-bar, .summary-bar, .toolbar, .table-wrap, footer { padding-left: 16px; padding-right: 16px; }
       .card { min-width: 100px; }
     }
   </style>
@@ -352,6 +483,43 @@
     </div>
     <div class="nav-meta">Run date: <span id="runDate">—</span></div>
   </nav>
+
+  <!-- ── Upload toggle bar ── -->
+  <div class="upload-toggle-bar">
+    <button class="upload-toggle-btn" onclick="toggleUpload()" id="uploadToggleBtn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload File
+    </button>
+    <span class="hint">Import a CSV or Excel export from MyCRM — duplicates are automatically updated</span>
+  </div>
+
+  <!-- ── Upload panel ── -->
+  <div class="upload-panel" id="uploadPanel">
+    <div class="upload-panel-inner">
+      <div class="upload-zone" id="uploadZone"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="upload-spinner" id="uploadSpinner"></div>
+        <div class="upload-icon">📂</div>
+        <div class="upload-label" id="uploadLabel">Drag &amp; drop your file here</div>
+        <div class="upload-filename" id="uploadFilename"></div>
+        <button class="browse-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Browse files</button>
+        <p class="upload-hint">Supports .csv and .xlsx &nbsp;·&nbsp; Same client_id = update existing record</p>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none"
+               onchange="handleFileSelect(this.files[0])" />
+      </div>
+      <div class="upload-error-msg" id="uploadErrorMsg"></div>
+      <div class="upload-result" id="uploadResult">
+        <span class="result-title">Upload complete —</span>
+        <span class="chip chip-added"   id="chipAdded"></span>
+        <span class="chip chip-updated" id="chipUpdated"></span>
+        <span class="chip chip-error"   id="chipErrors"></span>
+        <button class="dismiss-btn" onclick="dismissResult()">✕</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Summary cards ── -->
   <div class="summary-bar" id="summaryBar">
@@ -641,6 +809,133 @@
   }
 
   boot();
+
+  // ── Upload ────────────────────────────────────────────────────────────
+  function toggleUpload() {
+    const panel = document.getElementById('uploadPanel');
+    const btn   = document.getElementById('uploadToggleBtn');
+    const open  = panel.classList.toggle('open');
+    btn.style.background = open ? 'rgba(255,255,255,.18)' : '';
+    btn.style.borderColor = open ? 'rgba(255,255,255,.3)' : '';
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }
+
+  function handleFileSelect(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+      showUploadError('Unsupported file type. Please upload a .csv or .xlsx file.');
+      return;
+    }
+    hideUploadError();
+    dismissResult();
+    document.getElementById('uploadFilename').textContent = file.name;
+    uploadFile(file);
+  }
+
+  async function uploadFile(file) {
+    const zone  = document.getElementById('uploadZone');
+    const label = document.getElementById('uploadLabel');
+    zone.classList.add('uploading');
+    label.textContent = 'Uploading…';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const resp = await fetch('/upload', { method: 'POST', body: formData });
+      const json = await resp.json();
+      if (!resp.ok) {
+        showUploadError(json.error || 'Upload failed.');
+        return;
+      }
+      showUploadResult(json);
+      await refreshDashboard();
+    } catch (err) {
+      showUploadError('Network error — is the server running?');
+    } finally {
+      zone.classList.remove('uploading');
+      label.textContent = 'Drag & drop your file here';
+      document.getElementById('fileInput').value = '';
+    }
+  }
+
+  function showUploadResult(r) {
+    const result = document.getElementById('uploadResult');
+    const ca = document.getElementById('chipAdded');
+    const cu = document.getElementById('chipUpdated');
+    const ce = document.getElementById('chipErrors');
+
+    ca.textContent = `${r.added} added`;
+    cu.textContent = `${r.updated} updated`;
+    ce.textContent = r.errors > 0 ? `${r.errors} errors` : '';
+
+    ca.style.display = r.added   > 0 ? '' : 'none';
+    cu.style.display = r.updated > 0 ? '' : 'none';
+    ce.style.display = r.errors  > 0 ? '' : 'none';
+
+    result.classList.add('visible');
+  }
+
+  function dismissResult() {
+    document.getElementById('uploadResult').classList.remove('visible');
+    document.getElementById('uploadFilename').textContent = '';
+  }
+
+  function showUploadError(msg) {
+    const el = document.getElementById('uploadErrorMsg');
+    el.textContent = '⚠ ' + msg;
+    el.classList.add('visible');
+  }
+
+  function hideUploadError() {
+    document.getElementById('uploadErrorMsg').classList.remove('visible');
+  }
+
+  async function refreshDashboard() {
+    try {
+      const [summary, data] = await Promise.all([
+        fetch('/api/summary').then(r => r.json()),
+        fetch('/api/data').then(r => r.json()),
+      ]);
+
+      // Update summary cards
+      document.getElementById('runDate').textContent    = summary.run_date || '—';
+      document.getElementById('cTotal').textContent     = summary.total;
+      document.getElementById('cStrong').textContent    = summary.strong;
+      document.getElementById('cReview').textContent    = summary.review;
+      document.getElementById('cNo').textContent        = summary.no_refi;
+      document.getElementById('cRate').textContent      = summary.above_rate;
+      document.getElementById('cExpiring').textContent  = summary.expiring;
+
+      // Rebuild broker select (keep current selection if still valid)
+      const sel      = document.getElementById('brokerSelect');
+      const prevVal  = sel.value;
+      sel.innerHTML  = '<option value="">All Brokers</option>';
+      summary.brokers.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = b;
+        sel.appendChild(o);
+      });
+      if (summary.brokers.includes(prevVal)) sel.value = prevVal;
+
+      // Replace data and re-render
+      allRows = data.map(r => ({
+        ...r,
+        avm_value_raw: parseFloat((r.avm_value || '').replace(/[^0-9.]/g, '')) || 0,
+        rate_raw:      parseFloat((r.rate || '').replace('%', '')) || 0,
+      }));
+      applyFilters();
+    } catch (err) {
+      console.error('Dashboard refresh failed:', err);
+    }
+  }
 </script>
 </body>
 </html>
