@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RefiSight – Upload Test</title>
+  <!-- SheetJS for Excel parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:#0d1b2e; --navy-mid:#152540; --navy-light:#1e3358;
+      --accent:#2563eb; --accent-hover:#1d4ed8;
+      --text:#0f172a; --muted:#64748b; --border:#e2e8f0; --bg:#f8fafc; --white:#ffffff;
+      --green-bg:#ecfdf5; --green-text:#065f46; --green-border:#10b981;
+      --amber-bg:#fffbeb; --amber-text:#92400e; --amber-border:#f59e0b;
+      --red-bg:#fef2f2;   --red-text:#991b1b;   --red-border:#ef4444;
+      --grey-bg:#f1f5f9;  --grey-text:#475569;  --grey-border:#94a3b8;
+    }
+    html,body{height:100%;font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+    .app{display:flex;flex-direction:column;min-height:100vh;}
+
+    /* Nav */
+    nav{background:var(--navy);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.35);}
+    .nav-brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:17px;}
+    .nav-brand .icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+    .nav-meta{font-size:12px;color:#94a3b8;} .nav-meta span{color:#cbd5e1;font-weight:500;}
+    .nav-right{display:flex;align-items:center;gap:12px;}
+    .storage-badge{font-size:11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#94a3b8;padding:4px 10px;border-radius:6px;}
+    .clear-btn{font-size:11px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .15s;}
+    .clear-btn:hover{background:rgba(239,68,68,.25);}
+
+    /* Upload toggle bar */
+    .upload-toggle-bar{background:var(--navy-light);border-bottom:1px solid rgba(255,255,255,.08);padding:0 28px;display:flex;align-items:center;gap:12px;height:44px;}
+    .upload-toggle-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#cbd5e1;font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;}
+    .upload-toggle-btn:hover,.upload-toggle-btn.active{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.28);color:#f1f5f9;}
+    .upload-toggle-bar .hint{font-size:11px;color:#64748b;}
+
+    /* Upload panel */
+    .upload-panel{background:var(--white);border-bottom:1px solid var(--border);overflow:hidden;max-height:0;transition:max-height .3s ease;}
+    .upload-panel.open{max-height:360px;}
+    .upload-panel-inner{padding:24px 28px;}
+    .upload-zone{border:2px dashed var(--border);border-radius:12px;padding:32px 24px;text-align:center;background:var(--bg);cursor:pointer;transition:border-color .2s,background .2s;position:relative;}
+    .upload-zone:hover{border-color:var(--accent);background:#f0f6ff;}
+    .upload-zone.drag-over{border-color:var(--accent);background:#eff6ff;}
+    .upload-zone.uploading{opacity:.6;pointer-events:none;}
+    .upload-icon{font-size:32px;margin-bottom:10px;line-height:1;}
+    .upload-label{font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;}
+    .upload-hint{font-size:12px;color:var(--muted);margin-top:8px;}
+    .upload-filename{font-size:12px;color:var(--accent);font-weight:600;margin-top:6px;min-height:18px;}
+    .browse-btn{display:inline-block;margin-top:10px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;}
+    .browse-btn:hover{background:var(--accent-hover);}
+    .upload-spinner{display:none;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
+    .upload-zone.uploading .upload-spinner{display:block;}
+    .upload-zone.uploading .upload-icon,.upload-zone.uploading .browse-btn{display:none;}
+    .upload-result{display:none;align-items:center;gap:10px;margin-top:14px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;}
+    .upload-result.visible{display:flex;}
+    .result-title{font-size:13px;font-weight:600;color:var(--text);}
+    .chip{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+    .chip-added{background:var(--green-bg);color:var(--green-text);}
+    .chip-updated{background:#eff6ff;color:var(--accent);}
+    .chip-error{background:var(--red-bg);color:var(--red-text);}
+    .dismiss-btn{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;}
+    .dismiss-btn:hover{background:var(--border);}
+    .upload-error-msg{display:none;margin-top:10px;padding:10px 14px;background:var(--red-bg);border:1px solid #fecaca;border-radius:8px;font-size:12px;color:var(--red-text);}
+    .upload-error-msg.visible{display:block;}
+
+    /* Summary cards */
+    .summary-bar{background:var(--navy-mid);padding:18px 28px;display:flex;gap:14px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.06);}
+    .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 20px;min-width:130px;flex:1;cursor:pointer;transition:background .15s,border-color .15s;position:relative;overflow:hidden;}
+    .card:hover,.card.active{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);}
+    .card.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;}
+    .card.active.c-all::after{background:#60a5fa;} .card.active.c-strong::after{background:var(--green-border);} .card.active.c-review::after{background:var(--amber-border);} .card.active.c-no::after{background:var(--red-border);}
+    .card-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+    .card-value{font-size:26px;font-weight:700;color:#f8fafc;line-height:1;}
+    .card-sub{font-size:11px;color:#64748b;margin-top:4px;}
+    .card.c-strong .card-value{color:#4ade80;} .card.c-review .card-value{color:#fbbf24;} .card.c-no .card-value{color:#f87171;}
+
+    /* Toolbar */
+    .toolbar{padding:16px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--white);border-bottom:1px solid var(--border);}
+    .toolbar-title{font-weight:600;font-size:15px;color:var(--navy);margin-right:8px;}
+    .search-wrap{position:relative;flex:1;max-width:320px;}
+    .search-wrap input{width:100%;padding:8px 12px 8px 36px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;}
+    .search-wrap input:focus{border-color:var(--accent);}
+    .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+    select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);outline:none;cursor:pointer;}
+    .pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
+    .pill-all{background:#eff6ff;color:var(--accent);border-color:#bfdbfe;}
+    .pill-all:hover,.pill-all.active{background:var(--accent);color:white;border-color:var(--accent);}
+    .pill-strong{background:var(--green-bg);color:var(--green-text);border-color:#a7f3d0;}
+    .pill-strong:hover,.pill-strong.active{background:var(--green-border);color:white;border-color:var(--green-border);}
+    .pill-review{background:var(--amber-bg);color:var(--amber-text);border-color:#fde68a;}
+    .pill-review:hover,.pill-review.active{background:var(--amber-border);color:white;border-color:var(--amber-border);}
+    .pill-no{background:var(--red-bg);color:var(--red-text);border-color:#fecaca;}
+    .pill-no:hover,.pill-no.active{background:var(--red-border);color:white;border-color:var(--red-border);}
+    .count-badge{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;}
+
+    /* Table */
+    .table-wrap{flex:1;overflow-x:auto;padding:0 28px 32px;background:var(--bg);}
+    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:16px;background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:13px;}
+    thead th{background:var(--navy);color:#cbd5e1;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;}
+    thead th:hover{color:#f1f5f9;}
+    thead th .si{display:inline-block;margin-left:4px;opacity:.4;font-size:10px;}
+    thead th.sorted .si{opacity:1;color:#60a5fa;}
+    tbody tr{border-bottom:1px solid var(--border);transition:filter .1s;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{filter:brightness(.97);}
+    td{padding:12px 14px;vertical-align:middle;}
+    tr.band-strong{background:var(--green-bg);} tr.band-review{background:var(--amber-bg);} tr.band-no{background:var(--red-bg);} tr.band-unavail{background:var(--grey-bg);}
+    tr.band-strong td:first-child{border-left:4px solid var(--green-border);padding-left:10px;}
+    tr.band-review td:first-child{border-left:4px solid var(--amber-border);padding-left:10px;}
+    tr.band-no td:first-child{border-left:4px solid var(--red-border);padding-left:10px;}
+    tr.band-unavail td:first-child{border-left:4px solid var(--grey-border);padding-left:10px;}
+    .client-name{font-weight:600;color:var(--navy);} .client-id{font-size:11px;color:var(--muted);margin-top:2px;}
+    .address{color:var(--muted);font-size:12px;max-width:180px;line-height:1.4;}
+    .lvr-wrap{display:flex;flex-direction:column;gap:4px;min-width:90px;}
+    .lvr-val{font-weight:700;font-size:14px;}
+    .lvr-bar-bg{height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;}
+    .lvr-bar-fill{height:100%;border-radius:3px;}
+    tr.band-strong .lvr-val{color:var(--green-text);} tr.band-strong .lvr-bar-fill{background:var(--green-border);}
+    tr.band-review .lvr-val{color:var(--amber-text);} tr.band-review .lvr-bar-fill{background:var(--amber-border);}
+    tr.band-no .lvr-val{color:var(--red-text);}     tr.band-no .lvr-bar-fill{background:var(--red-border);}
+    tr.band-unavail .lvr-val{color:var(--grey-text);} tr.band-unavail .lvr-bar-fill{background:var(--grey-border);}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+    .badge-strong{background:var(--green-bg);color:var(--green-text);border:1px solid #a7f3d0;}
+    .badge-review{background:var(--amber-bg);color:var(--amber-text);border:1px solid #fde68a;}
+    .badge-no{background:var(--red-bg);color:var(--red-text);border:1px solid #fecaca;}
+    .badge-unavail{background:var(--grey-bg);color:var(--grey-text);border:1px solid #e2e8f0;}
+    .flags{display:flex;flex-direction:column;gap:3px;} .flag{font-size:11px;white-space:nowrap;}
+    .score-wrap{display:flex;gap:3px;align-items:center;}
+    .score-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;}
+    .score-dot.filled{background:var(--accent);}
+    .score-num{font-size:11px;color:var(--muted);margin-left:4px;}
+    .action-btn{display:inline-block;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;}
+    .action-call{background:#eff6ff;color:var(--accent);}
+    .action-assess{background:var(--amber-bg);color:var(--amber-text);}
+    .action-monitor{background:var(--grey-bg);color:var(--grey-text);}
+    .broker-tag{display:inline-block;padding:3px 8px;background:#eff6ff;color:var(--accent);border-radius:4px;font-size:11px;font-weight:600;}
+    .mono{font-family:'SF Mono','Consolas',monospace;}
+    .state-msg{text-align:center;padding:64px 24px;color:var(--muted);}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#f1f5f9;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.3);transform:translateY(80px);opacity:0;transition:all .3s;z-index:200;}
+    .toast.show{transform:translateY(0);opacity:1;}
+
+    footer{background:var(--white);border-top:1px solid var(--border);padding:12px 28px;font-size:11px;color:var(--muted);}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-brand"><div class="icon">📊</div>RefiSight <span style="font-size:11px;color:#64748b;font-weight:400;margin-left:6px;">— Standalone Test</span></div>
+    <div class="nav-right">
+      <span class="storage-badge">💾 localStorage</span>
+      <span class="nav-meta">Run date: <span id="runDate">—</span></span>
+      <button class="clear-btn" onclick="clearAllData()">Reset data</button>
+    </div>
+  </nav>
+
+  <!-- Upload toggle -->
+  <div class="upload-toggle-bar">
+    <button class="upload-toggle-btn" id="uploadToggleBtn" onclick="toggleUpload()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload File
+    </button>
+    <span class="hint">Import a CSV or Excel export from MyCRM — duplicates (same client_id) are automatically updated</span>
+  </div>
+
+  <!-- Upload panel -->
+  <div class="upload-panel" id="uploadPanel">
+    <div class="upload-panel-inner">
+      <div class="upload-zone" id="uploadZone"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="upload-spinner"></div>
+        <div class="upload-icon">📂</div>
+        <div class="upload-label" id="uploadLabel">Drag &amp; drop your CSV or Excel file here</div>
+        <div class="upload-filename" id="uploadFilename"></div>
+        <button class="browse-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Browse files</button>
+        <p class="upload-hint">Supports .csv and .xlsx &nbsp;·&nbsp; Same client_id = update existing record &nbsp;·&nbsp; Data saved to localStorage</p>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(this.files[0])" />
+      </div>
+      <div class="upload-error-msg" id="uploadErrorMsg"></div>
+      <div class="upload-result" id="uploadResult">
+        <span class="result-title">Upload complete —</span>
+        <span class="chip chip-added"   id="chipAdded"></span>
+        <span class="chip chip-updated" id="chipUpdated"></span>
+        <span class="chip chip-error"   id="chipErrors"></span>
+        <button class="dismiss-btn" onclick="dismissResult()">✕</button>
+      </div>
+
+      <!-- Column mapping help -->
+      <details style="margin-top:14px;">
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer;user-select:none;">Accepted column names ▾</summary>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">client_id</div>
+            <div style="color:var(--muted);">id, client_id, clientid, customer_id</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">client_name</div>
+            <div style="color:var(--muted);">name, full_name, customer_name</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">loan_balance</div>
+            <div style="color:var(--muted);">loan, balance, loan_amount</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">current_rate</div>
+            <div style="color:var(--muted);">rate, interest_rate, ir</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">fixed_expiry</div>
+            <div style="color:var(--muted);">expiry, fixed_rate_expiry, expiry_date</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:160px;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px;">broker</div>
+            <div style="color:var(--muted);">broker_name, adviser, advisor</div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary-bar">
+    <div class="card c-all active" data-band="" onclick="filterBand(this,'')">
+      <div class="card-label">Total Clients</div><div class="card-value" id="cTotal">—</div><div class="card-sub">in portfolio</div>
+    </div>
+    <div class="card c-strong" data-band="✅ Strong Refi" onclick="filterBand(this,'✅ Strong Refi')">
+      <div class="card-label">Strong Refi</div><div class="card-value" id="cStrong">—</div><div class="card-sub">LVR ≤ 80%</div>
+    </div>
+    <div class="card c-review" data-band="⚠ Review" onclick="filterBand(this,'⚠ Review')">
+      <div class="card-label">Review</div><div class="card-value" id="cReview">—</div><div class="card-sub">LVR 80–90%</div>
+    </div>
+    <div class="card c-no" data-band="❌ No Refi" onclick="filterBand(this,'❌ No Refi')">
+      <div class="card-label">No Refi</div><div class="card-value" id="cNo">—</div><div class="card-sub">LVR &gt; 90%</div>
+    </div>
+    <div class="card c-all" style="cursor:default">
+      <div class="card-label">Above Market Rate</div><div class="card-value" id="cRate" style="color:#60a5fa">—</div><div class="card-sub">≥ 6.20%</div>
+    </div>
+    <div class="card c-all" style="cursor:default">
+      <div class="card-label">Expiring Fixed</div><div class="card-value" id="cExpiring" style="color:#a78bfa">—</div><div class="card-sub">within 6 months</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="toolbar-title">Opportunities</span>
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Search client, address, ID…" oninput="applyFilters()" />
+    </div>
+    <select id="brokerSelect" onchange="applyFilters()"><option value="">All Brokers</option></select>
+    <button class="pill pill-all active"    data-band=""              onclick="filterBandPill(this,'')">All</button>
+    <button class="pill pill-strong"        data-band="✅ Strong Refi" onclick="filterBandPill(this,'✅ Strong Refi')">✅ Strong Refi</button>
+    <button class="pill pill-review"        data-band="⚠ Review"      onclick="filterBandPill(this,'⚠ Review')">⚠ Review</button>
+    <button class="pill pill-no"            data-band="❌ No Refi"     onclick="filterBandPill(this,'❌ No Refi')">❌ No Refi</button>
+    <span class="count-badge" id="countBadge"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('client_name')" data-col="client_name">Client <span class="si">↕</span></th>
+          <th onclick="sortBy('broker')"      data-col="broker">Broker <span class="si">↕</span></th>
+          <th>Address</th>
+          <th onclick="sortBy('avm_value_raw')" data-col="avm_value_raw">Est. Value <span class="si">↕</span></th>
+          <th>AVM Range</th>
+          <th onclick="sortBy('lvr_raw')"  data-col="lvr_raw">LVR <span class="si">↕</span></th>
+          <th onclick="sortBy('lvr_band')" data-col="lvr_band">Band <span class="si">↕</span></th>
+          <th onclick="sortBy('rate_raw')" data-col="rate_raw">Rate <span class="si">↕</span></th>
+          <th>Flags</th>
+          <th onclick="sortBy('score')" data-col="score">Priority <span class="si">↓</span></th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"><tr><td colspan="11"><div class="state-msg">Loading…</div></td></tr></tbody>
+    </table>
+  </div>
+
+  <footer>⚠ AVM is an estimate only and not a formal valuation. Use for internal servicing purposes only. &nbsp;|&nbsp; RefiSight — Internal Use Only &nbsp;|&nbsp; Data stored in browser localStorage</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+const LVR_STRONG    = 0.80;
+const LVR_REVIEW    = 0.90;
+const RATE_THRESH   = 6.20;
+const EXPIRY_DAYS   = 180;
+const MAX_SCORE     = 7;
+const STORAGE_KEY   = 'refisight_clients';
+const TODAY         = new Date();
+
+// Column alias map (lowercase_underscore → canonical)
+const COL_ALIASES = {
+  id:'client_id', client_id:'client_id', clientid:'client_id', customer_id:'client_id',
+  name:'client_name', client_name:'client_name', full_name:'client_name', customer_name:'client_name',
+  address:'address', property_address:'address', prop_address:'address',
+  loan:'loan_balance', balance:'loan_balance', loan_balance:'loan_balance', loan_amount:'loan_balance', outstanding_balance:'loan_balance',
+  rate:'current_rate', interest_rate:'current_rate', current_rate:'current_rate', ir:'current_rate',
+  broker:'broker', broker_name:'broker', adviser:'broker', advisor:'broker',
+  expiry:'fixed_expiry', fixed_expiry:'fixed_expiry', fixed_rate_expiry:'fixed_expiry', expiry_date:'fixed_expiry', rate_expiry:'fixed_expiry',
+};
+
+// Seed data (matches sample_data.csv)
+const SEED_CLIENTS = [
+  {client_id:'12345',client_name:'John Smith',        address:'10 Robin St Camira QLD 4300',      loan_balance:'600000',current_rate:'6.35',broker:'Rixon',    fixed_expiry:'2027-03-01'},
+  {client_id:'12346',client_name:'Sarah Jones',       address:'25 Maple Ave Kenmore QLD 4069',     loan_balance:'480000',current_rate:'5.99',broker:'Thompson', fixed_expiry:'2025-08-15'},
+  {client_id:'12347',client_name:'Michael Brown',     address:'7 Ocean Dr Burleigh Heads QLD 4220',loan_balance:'950000',current_rate:'6.45',broker:'Rixon',    fixed_expiry:'2025-09-30'},
+  {client_id:'12348',client_name:'Emily Davis',       address:'3 Park Rd Indooroopilly QLD 4068',  loan_balance:'320000',current_rate:'6.10',broker:'Williams', fixed_expiry:''},
+  {client_id:'12349',client_name:'David Wilson',      address:'14 Hill St Toowong QLD 4066',       loan_balance:'710000',current_rate:'6.55',broker:'Thompson', fixed_expiry:'2026-01-20'},
+  {client_id:'12350',client_name:'Jessica Taylor',    address:'88 River Rd West End QLD 4101',     loan_balance:'540000',current_rate:'5.85',broker:'Rixon',    fixed_expiry:''},
+  {client_id:'12351',client_name:'Christopher Martin',address:'31 Bay St Cleveland QLD 4163',      loan_balance:'415000',current_rate:'6.30',broker:'Williams', fixed_expiry:'2025-11-01'},
+  {client_id:'12352',client_name:'Amanda Anderson',   address:'52 Creek Rd Graceville QLD 4075',   loan_balance:'880000',current_rate:'6.20',broker:'Thompson', fixed_expiry:'2027-06-15'},
+  {client_id:'12353',client_name:'Matthew Thomas',    address:'9 Fern St Ashgrove QLD 4060',       loan_balance:'275000',current_rate:'6.75',broker:'Rixon',    fixed_expiry:'2025-07-31'},
+  {client_id:'12354',client_name:'Melissa Jackson',   address:'18 Summit Rd Paddington QLD 4064',  loan_balance:'630000',current_rate:'6.00',broker:'Williams', fixed_expiry:'2026-04-10'},
+];
+
+// Mock AVM keyed by client_id (used when no real API)
+const MOCK_AVM = {
+  '12345':{value:750000, low:710000, high:795000, conf:0.88},
+  '12346':{value:680000, low:645000, high:715000, conf:0.91},
+  '12347':{value:1040000,low:980000, high:1100000,conf:0.82},
+  '12348':{value:520000, low:495000, high:545000, conf:0.93},
+  '12349':{value:820000, low:775000, high:865000, conf:0.86},
+  '12350':{value:710000, low:670000, high:750000, conf:0.89},
+  '12351':{value:480000, low:450000, high:510000, conf:0.84},
+  '12352':{value:null},
+  '12353':{value:350000, low:315000, high:385000, conf:0.55},
+  '12354':{value:720000, low:685000, high:755000, conf:0.87},
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORAGE
+// ─────────────────────────────────────────────────────────────────────────────
+function loadClients() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveClients(map) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+}
+
+function getOrSeedClients() {
+  let map = loadClients();
+  if (!map) {
+    map = {};
+    SEED_CLIENTS.forEach(c => { map[c.client_id] = c; });
+    saveClients(map);
+  }
+  return map;
+}
+
+function clearAllData() {
+  if (!confirm('Reset all data back to the 10 sample clients?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  allRows = [];
+  boot();
+  showToast('Data reset to sample clients');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUSINESS LOGIC
+// ─────────────────────────────────────────────────────────────────────────────
+function parseDate(s) {
+  if (!s || s === '' || s === 'nan') return null;
+  const fmts = [
+    /^(\d{4})-(\d{2})-(\d{2})$/,   // YYYY-MM-DD
+    /^(\d{2})\/(\d{2})\/(\d{4})$/,  // DD/MM/YYYY
+    /^(\d{2})-(\d{2})-(\d{4})$/,    // DD-MM-YYYY
+  ];
+  for (const re of fmts) {
+    const m = s.match(re);
+    if (m) {
+      // Determine if YYYY first or DD first by checking the regex
+      if (re.source.startsWith('^(\\d{4})')) {
+        return new Date(+m[1], +m[2]-1, +m[3]);
+      } else {
+        return new Date(+m[3], +m[2]-1, +m[1]);
+      }
+    }
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isExpiringSoon(dateStr) {
+  const d = parseDate(dateStr);
+  if (!d) return false;
+  const diff = (d - TODAY) / 86400000;
+  return diff >= 0 && diff <= EXPIRY_DAYS;
+}
+
+function processClient(raw) {
+  const id    = String(raw.client_id || '');
+  const loan  = parseFloat(String(raw.loan_balance || '').replace(/[^0-9.]/g, '')) || 0;
+  const rate  = parseFloat(String(raw.current_rate || '').replace(/[^0-9.]/g, '')) || 0;
+  const avm   = MOCK_AVM[id] || {};
+  const avmV  = avm.value || null;
+  const avmL  = avm.low || null;
+  const avmH  = avm.high || null;
+  const avmC  = avm.conf != null ? avm.conf : null;
+
+  const lvr       = (loan && avmV) ? loan / avmV : null;
+  const lvr_band  = !avmV ? 'AVM Unavailable'
+                  : lvr <= LVR_STRONG ? '✅ Strong Refi'
+                  : lvr <= LVR_REVIEW ? '⚠ Review'
+                  : '❌ No Refi';
+
+  const rate_flag       = rate >= RATE_THRESH ? '💰 Above Market' : '';
+  const timing_flag     = isExpiringSoon(raw.fixed_expiry) ? '⏰ Expiring Soon' : '';
+  const confidence_flag = (avmC !== null && avmC < 0.70) ? '⚠ Low Confidence – Order Val' : '';
+
+  let score = 0;
+  if (lvr !== null) score += lvr <= LVR_STRONG ? 3 : lvr <= LVR_REVIEW ? 1 : 0;
+  if (rate >= RATE_THRESH) score += 2;
+  if (timing_flag) score += 2;
+
+  const action = lvr_band.includes('Strong') ? 'Call Client'
+               : lvr_band.includes('Review') ? 'Assess Options'
+               : 'Monitor';
+
+  const fmt = v => v != null ? '$' + v.toLocaleString('en-AU', {maximumFractionDigits:0}) : '—';
+
+  return {
+    client_id:      id,
+    client_name:    raw.client_name || '',
+    broker:         raw.broker || '',
+    address:        raw.address || '',
+    avm_value:      fmt(avmV),
+    avm_value_raw:  avmV || 0,
+    avm_range:      (avmL && avmH) ? `${fmt(avmL)} – ${fmt(avmH)}` : '—',
+    confidence:     avmC != null ? Math.round(avmC * 100) + '%' : '—',
+    loan_balance:   fmt(loan),
+    lvr:            lvr != null ? (lvr * 100).toFixed(1) + '%' : '—',
+    lvr_raw:        lvr != null ? Math.round(lvr * 1000) / 10 : null,
+    lvr_band,
+    rate:           rate ? rate.toFixed(2) + '%' : '—',
+    rate_raw:       rate,
+    rate_flag,
+    timing_flag,
+    confidence_flag,
+    action,
+    score,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLUMN NORMALISATION
+// ─────────────────────────────────────────────────────────────────────────────
+function normaliseKey(k) {
+  return k.trim().toLowerCase().replace(/[\s\-]+/g, '_');
+}
+
+function normaliseRow(rawRow) {
+  const out = {};
+  for (const [k, v] of Object.entries(rawRow)) {
+    const canonical = COL_ALIASES[normaliseKey(k)];
+    if (canonical) out[canonical] = String(v ?? '').trim();
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPLOAD PROCESSING
+// ─────────────────────────────────────────────────────────────────────────────
+function processUpload(rows) {
+  const clientMap = getOrSeedClients();
+  let added = 0, updated = 0, errors = 0;
+
+  for (const rawRow of rows) {
+    const row = normaliseRow(rawRow);
+    if (!row.client_id) { errors++; continue; }
+    const exists = !!clientMap[row.client_id];
+    clientMap[row.client_id] = {
+      ...( exists ? clientMap[row.client_id] : {} ),
+      ...row,
+    };
+    exists ? updated++ : added++;
+  }
+
+  saveClients(clientMap);
+  return { added, updated, errors, total: added + updated };
+}
+
+function parseCSVText(text) {
+  const lines  = text.trim().split(/\r?\n/);
+  const header = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { vals.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    vals.push(cur);
+    const obj = {};
+    header.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim(); });
+    return obj;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let allRows = [], sortCol = 'score', sortDir = -1, activeBand = '';
+
+function boot() {
+  const clientMap = getOrSeedClients();
+  const clients   = Object.values(clientMap);
+
+  allRows = clients.map(processClient);
+
+  // Summary
+  const strong  = allRows.filter(r => r.lvr_band.includes('Strong')).length;
+  const review  = allRows.filter(r => r.lvr_band.includes('Review')).length;
+  const noRefi  = allRows.filter(r => r.lvr_band.includes('No Refi')).length;
+  const aboveR  = allRows.filter(r => r.rate_flag).length;
+  const expiring= allRows.filter(r => r.timing_flag).length;
+  const brokers = [...new Set(allRows.map(r => r.broker).filter(Boolean))].sort();
+
+  document.getElementById('runDate').textContent   = new Date().toLocaleDateString('en-AU');
+  document.getElementById('cTotal').textContent    = allRows.length;
+  document.getElementById('cStrong').textContent   = strong;
+  document.getElementById('cReview').textContent   = review;
+  document.getElementById('cNo').textContent       = noRefi;
+  document.getElementById('cRate').textContent     = aboveR;
+  document.getElementById('cExpiring').textContent = expiring;
+
+  const sel = document.getElementById('brokerSelect');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">All Brokers</option>';
+  brokers.forEach(b => {
+    const o = document.createElement('option');
+    o.value = b; o.textContent = b;
+    sel.appendChild(o);
+  });
+  if (brokers.includes(prev)) sel.value = prev;
+
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTERING & SORTING
+// ─────────────────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  const broker = document.getElementById('brokerSelect').value;
+
+  let rows = allRows.filter(r => {
+    if (activeBand && r.lvr_band !== activeBand) return false;
+    if (broker && r.broker !== broker) return false;
+    if (search && !`${r.client_name} ${r.address} ${r.client_id}`.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  rows = [...rows].sort((a, b) => {
+    const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+    return (typeof av === 'number' && typeof bv === 'number')
+      ? (av - bv) * sortDir
+      : String(av).localeCompare(String(bv)) * sortDir;
+  });
+
+  render(rows);
+  document.getElementById('countBadge').textContent = `${rows.length} of ${allRows.length} clients`;
+}
+
+function filterBand(card, band) {
+  document.querySelectorAll('.card[data-band]').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  activeBand = band;
+  applyFilters();
+  document.querySelectorAll('.pill[data-band]').forEach(p => p.classList.toggle('active', p.dataset.band === band));
+}
+
+function filterBandPill(pill, band) {
+  document.querySelectorAll('.pill[data-band]').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeBand = band;
+  applyFilters();
+  document.querySelectorAll('.card[data-band]').forEach(c => c.classList.toggle('active', c.dataset.band === band));
+}
+
+function sortBy(col) {
+  sortDir = (sortCol === col) ? sortDir * -1 : (col === 'score' ? -1 : 1);
+  sortCol = col;
+  document.querySelectorAll('thead th[data-col]').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.col === col);
+    th.querySelector('.si').textContent = th.dataset.col === col ? (sortDir === -1 ? '↓' : '↑') : '↕';
+  });
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────────────
+function bandClass(b) {
+  return b && b.includes('Strong') ? 'band-strong'
+       : b && b.includes('Review') ? 'band-review'
+       : b && b.includes('No Refi') ? 'band-no'
+       : 'band-unavail';
+}
+
+function badgeHtml(b) {
+  const c = bandClass(b);
+  const m = {'band-strong':'badge-strong','band-review':'badge-review','band-no':'badge-no','band-unavail':'badge-unavail'};
+  return `<span class="badge ${m[c]}">${esc(b || 'AVM Unavailable')}</span>`;
+}
+
+function lvrHtml(r) {
+  if (r.lvr_raw === null) return `<div class="lvr-wrap"><span class="lvr-val" style="color:var(--grey-text)">—</span></div>`;
+  return `<div class="lvr-wrap"><span class="lvr-val">${esc(r.lvr)}</span><div class="lvr-bar-bg"><div class="lvr-bar-fill" style="width:${Math.min(r.lvr_raw,100)}%"></div></div></div>`;
+}
+
+function flagsHtml(r) {
+  const p = [];
+  if (r.rate_flag)       p.push(`<span class="flag">${esc(r.rate_flag)}</span>`);
+  if (r.timing_flag)     p.push(`<span class="flag">${esc(r.timing_flag)}</span>`);
+  if (r.confidence_flag) p.push(`<span class="flag">${esc(r.confidence_flag)}</span>`);
+  return p.length ? `<div class="flags">${p.join('')}</div>` : '<span style="color:var(--muted)">—</span>';
+}
+
+function scoreHtml(s) {
+  let d = '';
+  for (let i = 0; i < MAX_SCORE; i++) d += `<span class="score-dot ${i < s ? 'filled' : ''}"></span>`;
+  return `<div class="score-wrap">${d}<span class="score-num">${s}/${MAX_SCORE}</span></div>`;
+}
+
+function actionHtml(a) {
+  const c = a === 'Call Client' ? 'action-call' : a === 'Assess Options' ? 'action-assess' : 'action-monitor';
+  return `<span class="action-btn ${c}">${esc(a || '—')}</span>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function render(rows) {
+  const tb = document.getElementById('tableBody');
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="11"><div class="state-msg">No clients match the current filters.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = rows.map(r => `
+    <tr class="${bandClass(r.lvr_band)}">
+      <td><div class="client-name">${esc(r.client_name)}</div><div class="client-id mono">#${esc(r.client_id)}</div></td>
+      <td><span class="broker-tag">${esc(r.broker)}</span></td>
+      <td><div class="address">${esc(r.address)}</div></td>
+      <td class="mono" style="font-weight:600">${esc(r.avm_value)}</td>
+      <td class="mono" style="font-size:12px;color:var(--muted)">${esc(r.avm_range)}</td>
+      <td>${lvrHtml(r)}</td>
+      <td>${badgeHtml(r.lvr_band)}</td>
+      <td class="mono" style="font-weight:600">${esc(r.rate)}</td>
+      <td>${flagsHtml(r)}</td>
+      <td>${scoreHtml(r.score)}</td>
+      <td>${actionHtml(r.action)}</td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPLOAD UI
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleUpload() {
+  const panel = document.getElementById('uploadPanel');
+  const btn   = document.getElementById('uploadToggleBtn');
+  const open  = panel.classList.toggle('open');
+  btn.classList.toggle('active', open);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFileSelect(file);
+}
+
+function handleFileSelect(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+    showUploadError('Unsupported file type. Please upload a .csv or .xlsx file.');
+    return;
+  }
+  hideUploadError();
+  dismissResult();
+  document.getElementById('uploadFilename').textContent = '📄 ' + file.name;
+
+  const zone  = document.getElementById('uploadZone');
+  const label = document.getElementById('uploadLabel');
+  zone.classList.add('uploading');
+  label.textContent = 'Processing…';
+
+  const reader = new FileReader();
+
+  if (ext === 'csv') {
+    reader.onload = e => {
+      try {
+        const rows = parseCSVText(e.target.result);
+        finishUpload(rows, file.name);
+      } catch (err) {
+        showUploadError('Could not parse CSV: ' + err.message);
+        zone.classList.remove('uploading');
+        label.textContent = 'Drag & drop your CSV or Excel file here';
+      }
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = e => {
+      try {
+        const wb   = XLSX.read(e.target.result, {type:'array'});
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+        finishUpload(rows, file.name);
+      } catch (err) {
+        showUploadError('Could not parse Excel file: ' + err.message);
+        zone.classList.remove('uploading');
+        label.textContent = 'Drag & drop your CSV or Excel file here';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function finishUpload(rows, filename) {
+  const zone  = document.getElementById('uploadZone');
+  const label = document.getElementById('uploadLabel');
+  try {
+    if (!rows.length) throw new Error('File is empty.');
+    const sample    = normaliseRow(rows[0]);
+    if (!sample.client_id) throw new Error("File must contain a 'client_id' column (or alias: id, customer_id).");
+    const result = processUpload(rows);
+    showUploadResult(result);
+    boot();
+    showToast(`✓ Uploaded ${filename}`);
+  } catch (err) {
+    showUploadError(err.message);
+  } finally {
+    zone.classList.remove('uploading');
+    label.textContent = 'Drag & drop your CSV or Excel file here';
+    document.getElementById('fileInput').value = '';
+  }
+}
+
+function showUploadResult(r) {
+  const el = document.getElementById('uploadResult');
+  const ca = document.getElementById('chipAdded');
+  const cu = document.getElementById('chipUpdated');
+  const ce = document.getElementById('chipErrors');
+  ca.textContent = `${r.added} added`;
+  cu.textContent = `${r.updated} updated`;
+  ce.textContent = r.errors > 0 ? `${r.errors} skipped` : '';
+  ca.style.display = r.added   > 0 ? '' : 'none';
+  cu.style.display = r.updated > 0 ? '' : 'none';
+  ce.style.display = r.errors  > 0 ? '' : 'none';
+  el.classList.add('visible');
+}
+
+function dismissResult() {
+  document.getElementById('uploadResult').classList.remove('visible');
+  document.getElementById('uploadFilename').textContent = '';
+}
+
+function showUploadError(msg) {
+  const el = document.getElementById('uploadErrorMsg');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('visible');
+}
+
+function hideUploadError() {
+  document.getElementById('uploadErrorMsg').classList.remove('visible');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>
