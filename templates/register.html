@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RefiSight — Start Free Trial</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:         #0d1b2e;
+      --accent:       #2563eb;
+      --accent-hover: #1d4ed8;
+      --green:        #10b981;
+      --border:       #e2e8f0;
+      --muted:        #64748b;
+      --text:         #0f172a;
+      --error-bg:     #fef2f2;
+      --error-border: #fecaca;
+      --error-text:   #991b1b;
+    }
+    html, body {
+      min-height: 100%;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      font-size: 14px;
+    }
+    body {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .brand-icon {
+      width: 38px; height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .brand-name { font-size: 20px; font-weight: 800; color: var(--navy); letter-spacing: -.4px; }
+    .brand-tagline { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    h1 { font-size: 22px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+    .trial-banner {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 1px solid #a7f3d0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .trial-icon { font-size: 20px; }
+    .trial-text { font-size: 13px; color: #065f46; }
+    .trial-text strong { font-weight: 700; }
+
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text);
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .15s, background .15s;
+    }
+    input:focus { border-color: var(--accent); background: #fff; }
+    input.has-error { border-color: var(--error-border); }
+
+    .field-error {
+      font-size: 11px;
+      color: var(--error-text);
+      margin-top: 5px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 8px;
+      letter-spacing: .1px;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .terms {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+
+    .login-link {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .login-link a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .login-link a:hover { text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      .card { padding: 32px 24px; }
+      .field-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📊</div>
+      <div>
+        <div class="brand-name">RefiSight</div>
+        <div class="brand-tagline">Refinance Opportunity Platform</div>
+      </div>
+    </div>
+
+    <h1>Start your free trial</h1>
+    <p class="subtitle">Set up your brokerage account in under a minute</p>
+
+    <div class="trial-banner">
+      <div class="trial-icon">🎁</div>
+      <div class="trial-text">
+        <strong>14 days free</strong> — no credit card required.
+        Full access to all features from day one.
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+
+      <div class="field">
+        <label for="org_name">Brokerage / company name</label>
+        <input type="text" id="org_name" name="org_name"
+               placeholder="e.g. The Brokerage Pty Ltd"
+               value="{{ form.get('org_name', '') }}"
+               class="{{ 'has-error' if errors.get('org_name') }}" required />
+        {% if errors.get('org_name') %}
+        <div class="field-error">{{ errors['org_name'] }}</div>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name"
+               placeholder="First and last name"
+               value="{{ form.get('name', '') }}"
+               class="{{ 'has-error' if errors.get('name') }}" required />
+        {% if errors.get('name') %}
+        <div class="field-error">{{ errors['name'] }}</div>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="email">Work email</label>
+        <input type="email" id="email" name="email"
+               placeholder="you@yourbrokerage.com.au"
+               value="{{ form.get('email', '') }}"
+               class="{{ 'has-error' if errors.get('email') }}" required autocomplete="email" />
+        {% if errors.get('email') %}
+        <div class="field-error">{{ errors['email'] }}</div>
+        {% endif %}
+      </div>
+
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password"
+                 placeholder="Min. 8 characters"
+                 class="{{ 'has-error' if errors.get('password') }}" required />
+          {% if errors.get('password') %}
+          <div class="field-error">{{ errors['password'] }}</div>
+          {% endif %}
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label for="confirm_password">Confirm password</label>
+          <input type="password" id="confirm_password" name="confirm_password"
+                 placeholder="Repeat password"
+                 class="{{ 'has-error' if errors.get('confirm_password') }}" required />
+          {% if errors.get('confirm_password') %}
+          <div class="field-error">{{ errors['confirm_password'] }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">Create account &amp; start trial →</button>
+    </form>
+
+    <p class="terms">
+      By creating an account you agree to our Terms of Service and Privacy Policy.
+    </p>
+
+    <div class="login-link">
+      Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </div>
+  </div>
+</body>
+</html>

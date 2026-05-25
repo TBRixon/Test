@@ -79,6 +79,31 @@
       color: #94a3b8;
     }
     .nav-meta span { color: #cbd5e1; font-weight: 500; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .trial-badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+    }
+    .trial-badge.info    { background: rgba(96,165,250,.15); color: #93c5fd; }
+    .trial-badge.warning { background: rgba(251,191,36,.15);  color: #fcd34d; }
+    .trial-badge.danger  { background: rgba(248,113,113,.15); color: #fca5a5; }
+    .nav-user {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: #94a3b8;
+    }
+    .nav-user .avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .nav-user .user-name { color: #cbd5e1; font-weight: 500; }
+    .logout-btn {
+      font-size: 12px; color: #64748b; text-decoration: none;
+      padding: 5px 10px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.08);
+      transition: all .15s;
+    }
+    .logout-btn:hover { color: #f1f5f9; border-color: rgba(255,255,255,.2); }
 
     /* ── Summary cards ────────────────────────────────────────────── */
     .summary-bar {
@@ -480,8 +505,17 @@
     <div class="nav-brand">
       <div class="icon">📊</div>
       RefiSight
+      <span id="orgName" style="font-size:13px;font-weight:400;color:#64748b;margin-left:4px;"></span>
     </div>
-    <div class="nav-meta">Run date: <span id="runDate">—</span></div>
+    <div class="nav-right">
+      <div class="nav-meta">Run date: <span id="runDate">—</span></div>
+      <span id="trialBadge" class="trial-badge" style="display:none"></span>
+      <div class="nav-user">
+        <div class="avatar" id="userAvatar">?</div>
+        <span class="user-name" id="userName"></span>
+      </div>
+      <a href="/logout" class="logout-btn">Sign out</a>
+    </div>
   </nav>
 
   <!-- ── Upload toggle bar ── -->
@@ -618,10 +652,24 @@
   // ── Boot ───────────────────────────────────────────────────────────────
   async function boot() {
     try {
-      const [summary, data] = await Promise.all([
+      const [summary, data, me] = await Promise.all([
         fetch('/api/summary').then(r => r.json()),
         fetch('/api/data').then(r => r.json()),
+        fetch('/api/me').then(r => r.json()),
       ]);
+
+      // Nav user info
+      document.getElementById('orgName').textContent  = me.org_name || '';
+      document.getElementById('userName').textContent = me.user_name || '';
+      document.getElementById('userAvatar').textContent =
+        (me.user_name || '?').charAt(0).toUpperCase();
+
+      if (me.trial_badge) {
+        const b = document.getElementById('trialBadge');
+        b.textContent = me.trial_badge.label;
+        b.className   = `trial-badge ${me.trial_badge.style}`;
+        b.style.display = '';
+      }
       populateSummary(summary);
       populateBrokerSelect(summary.brokers);
       allRows = data.map(r => ({

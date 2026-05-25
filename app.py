@@ -1,25 +1,31 @@
 """
 app.py
-Flask dashboard server for the MyCRM Refi Opportunity pipeline.
+RefiSight Flask application – multi-tenant SaaS entry point.
 
-Serves the dashboard UI and provides a JSON API that the frontend
-consumes. When COTALITY_API_KEY is not set, realistic mock AVM data
-is used so the dashboard works out of the box for demonstration.
+Architecture:
+  - SQLAlchemy (SQLite locally, PostgreSQL in prod via DATABASE_URL)
+  - Flask-Login for session auth
+  - Per-org row cache keyed by org_id
+  - auth Blueprint  (/login, /register, /logout)
+  - dashboard Blueprint  (/, /upload, /api/*)
 """
 
 import logging
 import os
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask
+from flask_login import LoginManager
 
 load_dotenv()
 
-# Patch AVMClient to use mock data when no API key is configured
+# ---------------------------------------------------------------------------
+# AVM mock patch (applied before any import that uses AVMClient)
+# ---------------------------------------------------------------------------
 import avm_client as _avm_module
 
-# Mock AVM values keyed by client_id – realistic Brisbane property data
 MOCK_AVM_DATA = {
     "12345": {"value": 750000,  "low": 710000,  "high": 795000,  "confidence": 0.88, "date": "2025-05-01"},
     "12346": {"value": 680000,  "low": 645000,  "high": 715000,  "confidence": 0.91, "date": "2025-05-01"},
@@ -33,7 +39,7 @@ MOCK_AVM_DATA = {
     "12354": {"value": 720000,  "low": 685000,  "high": 755000,  "confidence": 0.87, "date": "2025-05-01"},
 }
 
-# address (normalised) → client_id, used by the mock AVM fetch
+# address → client_id, populated per-org for the mock lookup
 _address_to_client_id: dict[str, str] = {}
 
 
@@ -45,154 +51,135 @@ def _mock_fetch(self, address: str):
 if not os.getenv("COTALITY_API_KEY"):
     _avm_module.AVMClient._fetch_with_retry = _mock_fetch  # type: ignore[method-assign]
 
-from database import get_all_clients, init_db, process_upload, seed_from_csv
-from processor import process_row
-from utils import setup_logging
-
-setup_logging(logging.WARNING)
-
-app = Flask(__name__)
-
-DEFAULT_CSV = Path(__file__).parent / "sample_data.csv"
-
-# Module-level AVM client singleton – shared cache across all requests
+# Module-level AVM singleton (in-memory cache shared across orgs; safe because
+# AVM values are address-based, not tenant-specific)
 _avm_client = _avm_module.AVMClient()
 
-# Processed-row cache – invalidated whenever the DB changes
-_cached_rows: list[dict] | None = None
-
-
 # ---------------------------------------------------------------------------
-# Startup
+# Per-org processed-row cache
 # ---------------------------------------------------------------------------
-
-def _rebuild_address_map() -> None:
-    """Sync _address_to_client_id from the DB so the mock AVM lookup works."""
-    for client in get_all_clients():
-        addr = _avm_module.AVMClient._normalise_address(str(client.get("address", "")))
-        _address_to_client_id[addr] = str(client.get("client_id", ""))
+_rows_cache: dict[int, list[dict]] = {}
 
 
-with app.app_context():
-    init_db()
-    seed_from_csv(DEFAULT_CSV)
-    _rebuild_address_map()
+def get_cached_rows(org_id: int) -> list[dict]:
+    if org_id not in _rows_cache:
+        _rows_cache[org_id] = _build_rows(org_id)
+    return _rows_cache[org_id]
 
 
-# ---------------------------------------------------------------------------
-# Data pipeline
-# ---------------------------------------------------------------------------
+def invalidate_cache(org_id: int) -> None:
+    _rows_cache.pop(org_id, None)
 
-def _build_rows() -> list[dict]:
+
+def _build_rows(org_id: int) -> list[dict]:
+    from database import get_all_clients
+    from processor import process_row
+
     rows = []
-    for client in get_all_clients():
+    for client in get_all_clients(org_id):
         address = str(client.get("address", "")).strip()
         avm = _avm_client.get_avm(address)
         rows.append(process_row(client, avm))
     return rows
 
 
-def get_rows() -> list[dict]:
-    global _cached_rows
-    if _cached_rows is None:
-        _cached_rows = _build_rows()
-    return _cached_rows
-
-
-def _invalidate_cache() -> None:
-    global _cached_rows
-    _cached_rows = None
-    _avm_client._cache.clear()
-    _rebuild_address_map()
+def rebuild_address_map(org_id: int) -> None:
+    from database import get_all_clients
+    for client in get_all_clients(org_id):
+        addr = _avm_module.AVMClient._normalise_address(str(client.get("address", "")))
+        _address_to_client_id[addr] = str(client.get("client_id", ""))
 
 
 # ---------------------------------------------------------------------------
-# Routes
+# Application factory
 # ---------------------------------------------------------------------------
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+def create_app() -> Flask:
+    from utils import setup_logging
+    setup_logging(logging.WARNING)
+
+    app = Flask(__name__)
+
+    # Secret key – use env var in production, random fallback for dev
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+
+    # Database URL – SQLite locally, PostgreSQL in production
+    db_url = os.getenv("DATABASE_URL", "sqlite:///refi_pipeline.db")
+    if db_url.startswith("postgres://"):          # Heroku/Railway compat
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"]        = db_url
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # Init extensions
+    from models import db
+    db.init_app(app)
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view     = "auth.login"   # type: ignore[assignment]
+    login_manager.login_message  = "Please sign in to continue."
+
+    from models import User
+
+    @login_manager.user_loader
+    def load_user(user_id: str):
+        return User.query.get(int(user_id))
+
+    # Register blueprints
+    from auth import auth as auth_bp
+    from dashboard import dashboard as dashboard_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
+
+    # Create tables + seed demo data
+    with app.app_context():
+        db.create_all()
+        _seed_demo_org(app)
+
+    return app
 
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    if "file" not in request.files:
-        return jsonify({"error": "No file provided."}), 400
+def _seed_demo_org(app: Flask) -> None:
+    """
+    Create a demo organisation + admin user on first run so the app
+    works immediately without going through registration.
+    """
+    from models import Organisation, User, db
 
-    file = request.files["file"]
-    if not file.filename:
-        return jsonify({"error": "No file selected."}), 400
+    if Organisation.query.count() > 0:
+        return
 
-    ext = Path(file.filename).suffix.lower()
-    if ext not in (".csv", ".xlsx", ".xls"):
-        return jsonify({"error": "Unsupported file type. Please upload .csv or .xlsx."}), 400
+    from datetime import datetime, timedelta
+    from database import seed_from_csv
 
-    try:
-        result = process_upload(file)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 422
+    demo_org = Organisation(
+        name="The Brokerage (Demo)",
+        plan="trial",
+        trial_ends_at=datetime.utcnow() + timedelta(days=14),
+    )
+    db.session.add(demo_org)
+    db.session.flush()
 
-    _invalidate_cache()
-    return jsonify(result)
+    demo_user = User(org_id=demo_org.id, email="demo@refisight.com.au", name="Demo Admin", role="admin")
+    demo_user.set_password("demo1234")
+    db.session.add(demo_user)
+    db.session.commit()
 
+    default_csv = Path(app.root_path) / "sample_data.csv"
+    seed_from_csv(demo_org.id, default_csv)
+    rebuild_address_map(demo_org.id)
 
-@app.route("/api/data")
-def api_data():
-    rows = get_rows()
-    out = []
-    for r in rows:
-        lvr = r.get("LVR")
-        avm = r.get("Estimated Value")
-        out.append({
-            "client_id":       r.get("Client ID"),
-            "client_name":     r.get("Client Name"),
-            "broker":          r.get("Broker"),
-            "address":         r.get("Address"),
-            "avm_value":       f"${avm:,.0f}" if avm else "—",
-            "avm_range":       _range_str(r),
-            "confidence":      r.get("Confidence") or "—",
-            "loan_balance":    f"${r.get('Loan Balance'):,.0f}" if r.get("Loan Balance") else "—",
-            "lvr":             f"{lvr:.1%}" if lvr is not None else "—",
-            "lvr_raw":         round(lvr * 100, 1) if lvr is not None else None,
-            "lvr_band":        r.get("LVR Band"),
-            "rate":            f"{r.get('Rate'):.2f}%" if r.get("Rate") else "—",
-            "rate_flag":       r.get("Rate Flag"),
-            "timing_flag":     r.get("Timing Flag"),
-            "confidence_flag": r.get("Confidence Flag"),
-            "action":          r.get("Recommended Action"),
-            "score":           r.get("Priority Score", 0),
-            "avm_date":        r.get("AVM Date") or "—",
-        })
-
-    out.sort(key=lambda x: x["score"], reverse=True)
-    return jsonify(out)
+    app.logger.info(
+        "Demo org created – login: demo@refisight.com.au / demo1234"
+    )
 
 
-@app.route("/api/summary")
-def api_summary():
-    rows = get_rows()
-    brokers = sorted({r.get("Broker", "") for r in rows if r.get("Broker")})
-    return jsonify({
-        "total":       len(rows),
-        "strong":      sum(1 for r in rows if "Strong"      in str(r.get("LVR Band", ""))),
-        "review":      sum(1 for r in rows if "Review"      in str(r.get("LVR Band", ""))),
-        "no_refi":     sum(1 for r in rows if "No Refi"     in str(r.get("LVR Band", ""))),
-        "unavail":     sum(1 for r in rows if "Unavailable" in str(r.get("LVR Band", ""))),
-        "above_rate":  sum(1 for r in rows if r.get("Rate Flag")),
-        "expiring":    sum(1 for r in rows if r.get("Timing Flag")),
-        "brokers":     brokers,
-        "run_date":    rows[0].get("Run Date", "") if rows else "",
-    })
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
-
-def _range_str(r: dict) -> str:
-    lo = r.get("Low Range")
-    hi = r.get("High Range")
-    if lo and hi:
-        return f"${lo:,.0f} – ${hi:,.0f}"
-    return "—"
-
+app = create_app()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
